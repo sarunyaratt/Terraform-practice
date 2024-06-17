@@ -1,53 +1,49 @@
-terraform {
-  required_providers {
-    github = {
-      source = "integrations/github"
-      version = "6.2.1"
-    }
-  }
-}
-
-provider "github" {
-  owner = "JSarunn"
-}
-
 # create github repository
 resource "github_repository" "repo" {
-  name        = "First-repo"
-  description = "Created my first terraform repository"
+  name        = "Cool-repo"
   visibility  = "public"
 }
 
 # create github team
-resource "github_team" "cloudnc_team" {
+resource "github_team" "team" {
   name        = "Cool-team"
-  description = "Created my first cool team"
   privacy     = "closed"
 }
 
 # add a repository to the team
-resource "github_team_repository" "public_repo" {
-  team_id    = github_team.example.id
-  repository = github_repository.example.name
+resource "github_team_repository" "team_repo" {
+  team_id    = github_team.team.id
+  repository = github_repository.repo.name
+  permission = "push"
 }
 
-# create multiple github repositories
-variable "repo_names" {
-  type    = list(string)
-  default = ["repo1", "repo2", "repo3", "repo4", "repo5"]
-}
+#-------------------------
 
+# create github repositories
 resource "github_repository" "repos" {
   for_each = toset(var.repo_names)
-
   name        = each.value
   visibility  = "private"
 }
 
-# add repositories to the team
-resource "github_team_repository" "team_repos" {
-  for_each = toset(var.repo_names)
+# create github teams
+resource "github_team" "teams" {
+  for_each = toset(var.team_names)
+  name      = each.value
+  privacy   = "closed"
+}
 
-  team_id    = github_team.example.id
-  repository = each.value
+# add each repository to their team
+resource "github_team_repository" "groups" {
+  for_each = {
+    for group in var.groups : 
+    "${group.repo}_${group.team}" => {
+      team       = group.team,
+      repo       = group.repo,
+      permission = group.permission
+    }
+  }
+  team_id    = github_team.teams[each.value.team].id
+  repository = github_repository.repos[each.value.repo].name
+  permission = each.value.permission
 }
